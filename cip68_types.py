@@ -1,19 +1,19 @@
-from pycardano import PlutusData, PlutusMap, PlutusByteString, PlutusInteger
+from pycardano import PlutusData
 
 class MetaDatum(PlutusData):
     """
     CIP-68 datum: { metadata, version, extra }
     """
-    constructor = 0
-    metadata: PlutusData
+    CONSTR_ID = 0,
+    metadata: dict
     version: int
-    extra: PlutusData
+    extra: bytes
 
     def __init__(
         self,
-        metadata: PlutusMap,
-        version: PlutusInteger,
-        extra: PlutusByteString
+        metadata: dict,
+        version: int,
+        extra: bytes
     ):
         self.metadata = metadata
         self.version = version
