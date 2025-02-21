@@ -70,13 +70,27 @@ else:
     print("Chọn UTxO để trả phí:", chosen_utxo)
 
 asset_suffix = get_unique_asset_name_suffix(chosen_utxo).hex()
+prefix_ref_hex  = "0100AABB"
+prefix_user_hex = "0222CCDD"
+
+ref_hex  = prefix_ref_hex  + asset_suffix  # 64 hex => 32 bytes
+user_hex = prefix_user_hex + asset_suffix
+
+refNFT_bytes  = bytes.fromhex(ref_hex)
+userNFT_bytes = bytes.fromhex(user_hex)
+
+if len(refNFT_bytes) != 32 or len(userNFT_bytes) != 32:
+    raise ValueError("Asset name must be 32 bytes for CIP-68")
+
+refNFT  = AssetName(refNFT_bytes)
+userNFT = AssetName(userNFT_bytes)
 
 #    Tham số (policy_id, suffix, label) -> user to_unit
 #    Ở đây: "ebe9d0..." là 1 policy cũ? Có vẻ code cũ. 
 #    Thực tế, policy_id = policy_id (vừa tính)
 #    => Chúng ta thay "ebe9d0..." = policy_id
-refNFT = to_unit(policy_id, asset_suffix, 100)    # prefix_100
-userNFT = to_unit(policy_id, asset_suffix, 222)   # prefix_222
+# refNFT = to_unit(policy_id, asset_suffix, 100)    # prefix_100
+# userNFT = to_unit(policy_id, asset_suffix, 222)   # prefix_222
 
 # 5. Tạo MetaDatum (có extra) từ file metadata_nft.json
 with open('metadata_nft.json', 'r') as file:
@@ -107,24 +121,34 @@ builder.add_input(issuer_utxos[0])  # Chọn UTxO đầu (hoặc logic selection
 
 # 6.2. Mint 2 token (refNFT, userNFT)
 mint_assets = Asset({
-    AssetName(refNFT): 1,
-    AssetName(userNFT): 1
+    refNFT: 1,
+    userNFT: 1
 })
 
 redeemer_mint = Redeemer(
     data=0,  # 0 => 'MintTokens' (theo logic CIP-68)
-    tag=RedeemerTag.MINT
+)
+redeemer_mint.tag = RedeemerTag.MINT
+
+
+
+builder.mint = {
+    policy_id: mint_assets
+}
+
+# 2) Thêm minting script + redeemer
+builder.add_minting_script(
+    script=mint_script,
+    redeemer=redeemer_mint
 )
 
-builder.mint = [(mint_assets, mint_script, redeemer_mint)]
-
 # 7. Output #1: Gửi user token -> issuer
-val_user = Value(2_000_000, {policy_id: Asset({AssetName(userNFT): 1})})
+val_user = Value(2_000_000, {policy_id: Asset({userNFT: 1})})
 out_user = TransactionOutput(issuer_address, val_user)
 builder.add_output(out_user)
 
 # 8. Output #2: Gửi ref token -> store script, kèm "inline datum"
-val_ref = Value(2_000_000, {policy_id: Asset({AssetName(refNFT): 1})})
+val_ref = Value(2_000_000, {policy_id: Asset({refNFT: 1})})
 out_ref = TransactionOutput(
     address=store_script_address,
     amount=val_ref,
